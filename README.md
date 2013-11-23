@@ -254,8 +254,8 @@ Appendix A
 ----------
 Using MySQL for the Hive Metastore
 
-The default Hive installation uses a local Derby database to store the table
-and column meta information (table and column names, column types, etc).
+The default Hive installation uses a local Derby database to store Hive
+meta information (table and column names, column types, etc).
 This local database is fine for single-user/single-session usage, but a common
 setup is to configure Hive to use a MySQL database instance.
 
@@ -265,56 +265,101 @@ on the Google Compute Engine cluster master instance.
 
 ### Google Cloud SQL
 
-Google Cloud SQL is a MySQL database service on the Google Cloud Platform.
+[Google Cloud SQL](https://developers.google.com/cloud-sql/) is a
+MySQL database service on the Google Cloud Platform.  Using Cloud SQL
+removes the need to install and maintain MySQL on Google Compute Engine.
 
-Follow the
-[Getting Started](https://developers.google.com/cloud-sql/docs/before_you_begin)
-instructions to create a Google Cloud SQL instance.
+The instructions here assume that you will use native MySQL JDBC driver
+and not the legacy Google JDBC driver.
 
-On the Hadoop master instance, under the `hdpuser`,
-download the Google Cloud SQL command line tool and JDBC driver.
-More on these instructions and tools can be found at
-[Command Line Tool](https://developers.google.com/cloud-sql/docs/commandline).
+#### Create and configure the Google Cloud SQL instance
 
-    mkdir ~hdpuser/google_sql
-    cd ~hdpuser/google_sql/
-    wget http://dl.google.com/cloudsql/tools/google_sql_tool.zip
+In the [Google Cloud console](https://cloud.google.com/console), create a Google Cloud SQL instance, as described at
+[Getting Started](https://developers.google.com/cloud-sql/docs/before_you_begin).  When creating the Cloud SQL instance, be sure to:
 
-Install `unzip` and explode the `google_sql_tool.zip` file:
+  * Select **Specify Compute Engine zone** for the **Preferred Location**
+  * Select the **GCE Zone** of your Hadoop master instance
+  * Select **Assign IP Address**
+  * Add the external IP address of the Hadoop master instance to
+    **Authorized IP Addresses**.  Be sure to append "/32" to the IP Address
+    entered in this field
+    (you can also assign an IP address after creating the Cloud SQL instance)
 
-    sudo apt-get update
-    sudo apt-get install unzip
+After the Cloud SQL instance is created
 
-    unzip google_sql_tool.zip
+  * Select the instance link from the Cloud SQL instance list
+  * Go to the *Access Control* tab
+    * Enter a root password in the appropriate field (make a note of it, you will need it for the steps below.)
+    * Note the *IP address* assigned to the Cloud SQL instance;
+      it will be used in the Hive configuration file as explained below.
 
-Authenticate the command line tool:
+#### Install the MySQL client
 
-    ./google_sql.sh <instance>
+Connect to the Hadoop master instance as the user `hadoop`.
 
-Note that _instance_ is the fully qualified Google Cloud SQL instance name.
+Use the `aptitude` package manager to install the MySQL client:
 
-From the `google_sql.sh` prompt, issue:
+    sudo apt-get install --yes -f
+    sudo apt-get install --yes mysql-client
 
-    CREATE USER hdpuser@localhost IDENTIFIED BY 'hdppassword';
-    GRANT ALL PRIVILEGES ON hivemeta.* TO hdpuser@localhost;
 
-[You should select your own password here in place of _hdppassword_.]
+#### Create the Cloud SQL database
+
+Launch the mysql client to connect to the Google Cloud SQL instance,
+replacing `<cloud-sql-addr>` with the assigned IP address of the
+Cloud SQL instance
+
+    mysql --host=<cloud-sql-addr> --user=root --password
+
+The --password flag causes mysql to prompt for a password. Enter your root user password for the Cloud SQL instance.
+
 
 Create the database `hivemeta`.  Note that Hive requires the database
-to use `latin1` character encoding:
+to use `latin1` character encoding.
 
     CREATE DATABASE hivemeta CHARSET latin1;
 
-Now update the `hive-site.xml` file in `/home/hdpuser/hive/conf` to connect to
-the Google Cloud SQL database.  Add the following configuration:
+#### Configure database user and grant privileges
+
+Create the database user `hdpuser`:
+
+    CREATE USER hdpuser IDENTIFIED BY 'hdppassword';
+
+[You should select your own password here in place of _hdppassword_.]
+
+Issue grants on the `hivemeta` database to `hdpuser`:
+
+    GRANT ALL PRIVILEGES ON hivemeta.* TO hdpuser;
+
+#### Install the MySQL native JDBC driver
+
+Connect to the Hadoop master instance as the user `hadoop`.
+Use the `aptitude` package manager to install the MySQL JDBC driver:
+
+    sudo apt-get install --yes libmysql-java
+
+#### Configure Hive to use Cloud SQL
+
+Connect to the Hadoop master instance as the user `hdpuser`.
+
+Add the JDBC driver JAR file to hive's CLASSPATH.
+The simplest method is to copy the file to the `hive/lib/` directory:
+
+    cp /usr/share/java/mysql-connector-java.jar hive/lib/
+
+Update the `hive/conf/hive-site.xml` file to connect to
+the Google Cloud SQL database.  Add the following configuration,
+replacing `<cloud-sql-addr>` with the assigned IP address of the
+Cloud SQL instance, and replacing `hdppassword` with the database
+user password set earlier:
 
     <property>
       <name>javax.jdo.option.ConnectionURL</name>
-      <value>jdbc:google:rdbms://<instance>/hivemeta?createDatabaseIfNotExist=true</value>
+      <value>jdbc:mysql://<cloud-sql-addr>/hivemeta?createDatabaseIfNotExist=true</value>
     </property>
     <property>
       <name>javax.jdo.option.ConnectionDriverName</name>
-      <value>com.google.cloud.sql.Driver</value>
+      <value>com.mysql.jdbc.Driver</value>
     </property>
     <property>
       <name>javax.jdo.option.ConnectionUserName</name>
@@ -326,35 +371,37 @@ the Google Cloud SQL database.  Add the following configuration:
     </property>
 
 As a password has been added to this configuration file, it is recommended that
-you make the file readable and writeable only by the hdpuser:
+you make the file readable and writeable only by the `hdpuser`:
 
-    chmod 600 ~hdpuser/hive/conf/hive-site.xml
+    chmod 600 hive/conf/hive-site.xml
 
-Hive now needs the Google Cloud SQL JDBC driver.
-
-The simplest method to add the JAR file to hive's CLASSPATH
-is to copy the file to the `hive/lib/` directory:
-
-    cp ~hdpuser/google_sql/google_sql.jar ~hdpuser/hive/lib/
-
-When run, hive will now be able to use the Google Cloud SQL database as its
-metastore.
+When run, Hive will now be able to use the Google Cloud SQL database as its
+metastore.  The metastore database will be created with the first Hive DDL
+operation.  For troubleshooting, check the Hive log at `/tmp/hdpuser/hive.log`.
 
 ### MySQL on Google Compute Engine
 
-MySQL can be installed and run on Google Compute Engine.
+MySQL can be installed and run on Google Compute Engine.  The instructions
+here are for installing MySQL on the Hadoop master instance.  MySQL could
+also be installed on a separate Google Compute Engine instance.
 
-On the Hadoop master instance, under the `hdpuser`,
-use the `aptitude` package manager to install MySQL:
+#### Install the MySQL server
 
-    sudo apt-get update
-    sudo apt-get -y install mysql-server
+Connect to the Hadoop master instance as the user `hadoop`.
+Use the `aptitude` package manager to install MySQL:
 
-When completed, create a database with mysqladmin for the hive metastore:
+    sudo apt-get install --yes -f
+    sudo apt-get install --yes mysql-server
+
+#### Create MySQL database
+
+Create a database for the Hive metastore with mysqladmin:
 
     sudo mysqladmin create hivemeta
 
-When completed, create a user for the hive metastore.
+When completed, create a user for the Hive metastore.
+
+#### Configure database user and grant privileges
 
 Launch mysql:
 
@@ -367,8 +414,24 @@ At the MySQL shell prompt, issue:
 
 [You should select your own password here in place of _hdppassword_.]
 
-Now update the `hive-site.xml` file in `/home/hdpuser/hive/conf` to connect to
-the MySQL database.  Add the following configuration:
+#### Install the MySQL native JDBC driver
+
+Use the `aptitude` package manager to install the MySQL JDBC driver:
+
+    sudo apt-get install --yes libmysql-java
+
+#### Configure Hive to use MySQL
+
+Connect to the Hadoop master instance as the user `hdpuser`.
+
+Add the JDBC driver JAR file to hive's CLASSPATH.
+The simplest method is to copy the file to the `hive/lib/` directory:
+
+    cp /usr/share/java/mysql-connector-java.jar hive/lib/
+
+Update the `hive/conf/hive-site.xml` file to connect to
+the Google Cloud SQL database.  Add the following configuration,
+replacing `hdppassword` with the database user password set earlier:
 
     <property>
       <name>javax.jdo.option.ConnectionURL</name>
@@ -392,17 +455,9 @@ you make the file readable and writeable only by the hdpuser:
 
     chmod 600 ~hdpuser/hive/conf/hive-site.xml
 
-Hive now needs the Connector/J JDBC driver for MySQL.
-Use the `aptitude` package manager to install it.
-
-    sudo apt-get install libmysql-java
-
-The simplest method to add the JAR file to hive's CLASSPATH
-is to copy the file to the `hive/lib/` directory:
-
-    cp /usr/share/java/mysql-connector-java.jar ~hdpuser/hive/lib/
-
-When run, hive will now be able to use the MySQL database as its metastore.
+When run, Hive will now be able to use the MySQL database as its metastore.
+The metastore database will be created with the first Hive DDL operation.
+For troubleshooting, check the Hive log at `/tmp/hdpuser/hive.log`.
 
 Appendix B
 ----------
