@@ -23,10 +23,9 @@ set -o errexit
 
 readonly SCRIPT=$(basename $0)
 readonly SCRIPTDIR=$(dirname $0)
-readonly BASEDIR=$(dirname $SCRIPTDIR)
 
 # Pull in global properties
-source $BASEDIR/project_properties.sh
+source $SCRIPTDIR/project_properties.sh
 source $SCRIPTDIR/common_utils.sh
 
 if [[ $# -lt 1 ]]; then

@@ -24,12 +24,10 @@ source project_properties.sh
 # Pull in common functions
 source $SCRIPTDIR/common_utils.sh
 
-# Files to push to master
-readonly TOP_FILES_TO_PUSH="\
-  project_properties.sh \
-"
-
+# Files to push to master; place project_properties.sh in the same directory
+# as the other scripts
 readonly SCRIPT_FILES_TO_PUSH="\
+  project_properties.sh \
   $SCRIPTS_DIR/common_utils.sh \
   $SCRIPTS_DIR/package_utils.sh \
   $SCRIPTS_DIR/setup-hdfs-for-hdtools__at__master.sh \
@@ -43,7 +41,7 @@ readonly MASTER_PACKAGE_SUBDIRS="\
 "
 
 # Ensure permissions on the script files before we push them
-chmod 755 $TOP_FILES_TO_PUSH $SCRIPT_FILES_TO_PUSH
+chmod 755 $SCRIPT_FILES_TO_PUSH
 
 # Create the destination directory on the master
 emit ""
@@ -55,8 +53,6 @@ gcutil ssh --zone=$ZONE --ssh_arg -t $MASTER sudo -i \
 # Push the setup script to the master
 emit ""
 emit "Pushing the setup scripts to the master:"
-gcutil push --zone=$ZONE $MASTER \
-        $TOP_FILES_TO_PUSH $MASTER_PACKAGE_DIR
 gcutil push --zone=$ZONE $MASTER \
         $SCRIPT_FILES_TO_PUSH $MASTER_PACKAGE_DIR/$SCRIPTS_DIR
 
@@ -76,7 +72,7 @@ gcutil ssh --zone=$ZONE --ssh_arg -t $MASTER \
 emit ""
 emit "Launching the HDFS setup script on the master:"
 gcutil ssh --zone=$ZONE --ssh_arg -t $MASTER \
-        sudo sudo -u $HADOOP_USER -i \
+        sudo \
         $MASTER_PACKAGE_DIR/$SCRIPTS_DIR/setup-hdfs-for-hdtools__at__master.sh
 
 # Set up SSH keys for the user

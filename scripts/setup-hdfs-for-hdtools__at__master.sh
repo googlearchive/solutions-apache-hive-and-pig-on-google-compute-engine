@@ -18,12 +18,11 @@ set -o errexit
 
 SCRIPT=$(basename $0)
 SCRIPTDIR=$(dirname $0)
-BASEDIR=$(dirname $SCRIPTDIR)
 
-source $BASEDIR/project_properties.sh
+source $SCRIPTDIR/project_properties.sh
 source $SCRIPTDIR/common_utils.sh
 
-readonly HDFS_CMD="$HADOOP_HOME/bin/hadoop fs"
+readonly HDFS_CMD="sudo -u $HADOOP_USER -i $HADOOP_HOME/bin/hadoop fs"
 readonly HDFS_ROOT_USER="$HADOOP_USER"
 
 function hdfs_mkdir () {
@@ -53,10 +52,10 @@ emit ""
 emit "*** Begin: $SCRIPT running on master $(hostname) ***"
 
 # Ensure that /tmp exists (it should) and is fully accessible
-hdfs_mkdir "/tmp" "$HDFS_ROOT_USER" "777"
+hdfs_mkdir "$HDFS_TMP_DIR" "$HDFS_ROOT_USER" "777"
 
 # Create a hive-specific scratch space in /tmp for the hdpuser
-hdfs_mkdir "/tmp/hive-$HDP_USER" "$HDP_USER"
+hdfs_mkdir "$HDFS_TMP_DIR/hive-$HDP_USER" "$HDP_USER"
 
 # Create a warehouse directory (hive) for the hdpuser
 hdfs_mkdir "/user" "$HDFS_ROOT_USER"
@@ -70,7 +69,7 @@ if [[ "${HADOOP_MAJOR_VERSION}" == "2" ]]; then
   hdfs_mkdir "/hadoop/mapreduce/staging/history" "$HADOOP_USER" "777"
   hdfs_mkdir "/hadoop/mapreduce/staging/$HDP_USER" "$HDP_USER"
 else
-  hdfs_mkdir "/hadoop/tmp/mapred/staging/$HDP_USER" "$HDP_USER"
+  hdfs_mkdir "$HADOOP_TMP_DIR/mapred/staging/$HDP_USER" "$HDP_USER"
 fi
 
 emit ""

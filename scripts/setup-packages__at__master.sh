@@ -18,9 +18,8 @@ set -o errexit
 
 SCRIPT=$(basename $0)
 SCRIPTDIR=$(dirname $0)
-BASEDIR=$(dirname $SCRIPTDIR)
 
-source $BASEDIR/project_properties.sh
+source $SCRIPTDIR/project_properties.sh
 source $SCRIPTDIR/common_utils.sh
 source $SCRIPTDIR/package_utils.sh
 
@@ -56,6 +55,14 @@ function setup_pkg_hive() {
   mv $MASTER_PACKAGE_DIR/conf/hive/* $MASTER_INSTALL_DIR/hive/conf
   chown $HDP_USER:$HADOOP_GROUP -R $MASTER_INSTALL_DIR/hive/conf
   chmod 600 $MASTER_INSTALL_DIR/hive/conf/hive-site.xml
+
+  # Increase the heapsize when using the GCS connector
+  if $($HADOOP_HOME/bin/hadoop org.apache.hadoop.conf.Configuration \
+        | grep "<name>fs.gs.impl</name>" &> /dev/null); then
+    emit "Detected use of GCS connector- increasing Hive heap size"
+
+    echo "export HADOOP_HEAPSIZE=1024" >> $MASTER_INSTALL_DIR/hive/conf/hive-env.sh
+  fi
 }
 readonly -f setup_pkg_hive
 
@@ -93,6 +100,7 @@ fi
 # Set common environment variables
 emit "Setting up $HDP_USER_HOME/.profile_hdtools"
 echo "" >| $HDP_USER_HOME/.profile_hdtools
+JAVA_HOME=$(which java | xargs readlink -f | sed -E "s/\/(jre|jdk).*\/bin\/java$//")
 echo "export JAVA_HOME=$JAVA_HOME" >> $HDP_USER_HOME/.profile_hdtools
 echo "export HADOOP_PREFIX=$HADOOP_HOME" >> $HDP_USER_HOME/.profile_hdtools
 echo "export PATH=\$HADOOP_PREFIX/bin:\"\$PATH\"" >> $HDP_USER_HOME/.profile_hdtools
@@ -101,7 +109,12 @@ echo "export PATH=\$HADOOP_PREFIX/bin:\"\$PATH\"" >> $HDP_USER_HOME/.profile_hdt
 #  (rather than say /usr/local).
 emit ""
 emit "Copying package files from cloud storage"
-gsutil -m cp -R gs://$GCS_PACKAGE_BUCKET/$GCS_PACKAGE_DIR/* $MASTER_PACKAGE_DIR
+for tool in $SUPPORTED_HDPTOOLS; do
+  tool_uri=$(echo ${tool}_TARBALL_URI | tr '[:lower:]' '[:upper:'])
+
+  mkdir -p $MASTER_PACKAGE_DIR/$PACKAGES_DIR/${tool}
+  gsutil -q cp ${!tool_uri} $MASTER_PACKAGE_DIR/$PACKAGES_DIR/${tool}
+done
 
 PACKAGE_LIST=$(pkgutil_get_list $MASTER_PACKAGE_DIR/$PACKAGES_DIR)
 if [[ -z $PACKAGE_LIST ]]; then
@@ -137,9 +150,10 @@ chown -R $HDP_USER:$HADOOP_GROUP $MASTER_INSTALL_DIR
 # Set group write permissions on the /hadoop/tmp directory.
 # Depending on the version of the Hadoop solution, this may already be done.
 emit "Setting group write permissions on hadoop temporary directory"
-mkdir -p /hadoop/tmp
-chown $HADOOP_USER:$HADOOP_GROUP /hadoop/tmp
-chmod g+w /hadoop/tmp
+
+mkdir -p $HADOOP_TMP_DIR
+chown $HADOOP_USER:$HADOOP_GROUP $HADOOP_TMP_DIR
+chmod g+w $HADOOP_TMP_DIR
 
 emit ""
 emit "*** End: $SCRIPT running on master $(hostname) ***"

@@ -28,48 +28,91 @@ This sample application is not an official Google product.
 Summary
 -------
 
-This sample application can be used to install Apache
-Hive or Pig on top of a running installation of a
-Hadoop cluster on Google Compute Engine.
+This sample application can be used to install Apache Hive and/or Pig
+onto a Hadoop master instance on Google Compute Engine.
 
 Prerequisites
 -------------
 
-This sample application assumes that one has already brought up
-a Hadoop cluster on Google Compute Engine with
-[solutions-google-compute-engine-cluster-for-hadoop](https://github.com/GoogleCloudPlatform/solutions-google-compute-engine-cluster-for-hadoop).
+The sample application should be run from an Internet-connected machine
+such as a workstation/laptop.
 
-One should place this sample application in a separate directory
-from `solutions-google-compute-engine-cluster-for-hadoop`.
+The application assumes you have a Google Cloud Project created and that
+[Google Cloud Storage](https://developers.google.com/storage/docs/signup) and
+[Google Compute Engine](https://developers.google.com/compute/docs/signup)
+services are enabled on the project.
 
-In addition to a running Google Compute Engine cluster, the sample
+The application uses
+[gsutil](https://developers.google.com/storage/docs/gsutil) and
+[gcutil](https://developers.google.com/compute/docs/gcutil),
+command line tools for Google Cloud Storage and Google Compute Engine
+respectively.  Make sure to have the latest version of these
+[Cloud SDK](https://developers.google.com/cloud/sdk/) tools installed
+and added to your PATH environment variable.
+
+##### Default project
+
+The default project of the Cloud SDK tools must be set to the project
+of the Hadoop cluster.
+
+Use the [gcloud](https://developers.google.com/cloud/sdk/gcloud) command
+to change the default project of the Cloud SDK:
+
+    gcloud config set project <project ID>
+
+##### Hadoop cluster
+
+You should already have a Hadoop cluster running on Google Compute Engine.
+This sample application has been tested with clusters created using both
+of the following:
+
+  * [Solutions Cluster for Hadoop](https://github.com/GoogleCloudPlatform/solutions-google-compute-engine-cluster-for-hadoop)
+  * [Bash Script Quickstart for Hadoop](https://developers.google.com/hadoop/setting-up-a-hadoop-cluster)
+
+In addition to a running Google Compute Engine cluster, the sample application
 requires the user running the installation scripts and the Google
 Compute Engine instances to have authorized access to a Google
 Cloud Storage bucket.
-You may use the same bucket as the one used when starting the cluster.
+
+##### Cloud Storage bucket
+
+Create a Google Cloud Storage bucket.  This can be done by one of:
+
+* Using an existing bucket.
+  If you used either of the above Hadoop cluster bring-up packages, you may
+  use the same bucket.
+* Creating a new bucket from the "Cloud Storage" page on the project page of
+[Cloud Console](https://cloud.google.com/console)
+* Creating a new bucket with the
+[gsutil command line tool](https://developers.google.com/storage/docs/gsutil):
+
+        gsutil mb gs://<bucket name>
+
+Make sure to create the bucket in the same Google Cloud project as that
+specified in the "Default project" section above.
 
 Package Downloads
 -----------------
 
 This sample application can be used to install just one or both
 of the packages discussed here.
-Which packages are installed will be driven simply by copying the respective
+Which packages are installed will be driven by copying the respective
 tool's package archive into the "packages/_toolname_" subdirectory
-prior to running the installation scripts.
+of the sample app prior to running the installation scripts.
 
 ### Hive Package Setup
-Create a directory for the Hive package:
+Create a directory for the Hive package as a subdirectory of the sample application:
 
     mkdir -p packages/hive
 
 Download Hive from
-[hive.apache.org](http://hive.apache.org/releases.html)
+[hive.apache.org](http://hive.apache.org/downloads.html)
 and copy the gzipped tar file
 into the `packages/hive/` subdirectory.  Testing of this sample application
-was performed with `hive-0.10.0.tar.gz`.
+was performed with `hive-0.11.0.tar.gz` and `hive-0.12.0.tar.gz`.
 
 ### Pig Package Setup
-Create a directory for the Pig package:
+Create a directory for the Pig package as a subdirectory of the sample application::
 
     mkdir -p packages/pig
 
@@ -77,16 +120,16 @@ Download Pig from
 [pig.apache.org](http://pig.apache.org/releases.html)
 and copy the gzipped tar file
 into the `packages/pig/` subdirectory.  Testing of this sample application
-was performed with pig-0.11.1.tar.gz.
+was performed with pig-0.11.1.tar.gz and pig-0.12.0.tar.gz.
 
 If installing both tools, the packages subdirectory will
 now appear as:
 
     packages/
       hive/
-        hive-0.10.0.tar.gz
+        hive-0.12.0.tar.gz
       pig/
-        pig-0.11.1.tar.gz
+        pig-0.12.0.tar.gz
 
 Enter project details into properties file
 ------------------------------------------
@@ -101,12 +144,21 @@ Cloud Storage associated with your Hadoop project, such as
 Update the `ZONE` value with the Compute Engine zone associated with your
 Hadoop master instance, such as:
 
-    readonly ZONE=us-central2-a
+    readonly ZONE=us-central1-a
 
 Update the `MASTER` value with the name of the Compute Engine
 Hadoop master instance associated with your project, such as:
 
     readonly MASTER=myproject-hm
+
+Update the `HADOOP_HOME` value with the full directory path where
+hadoop is installed on the Hadoop master instance, such as:
+
+    readonly HADOOP_HOME=/home/hadoop/hadoop
+
+or
+
+    readonly HADOOP_HOME=/home/hadoop/hadoop-install
 
 The sample application will create a system userid named `hdpuser` on the
 Hadoop master instance.  The software will be installed into the user's
@@ -200,7 +252,7 @@ To drop the table enter:
 
     DROP TABLE passwd;
 
-Note that you do NOT need to remove the passwd file from HDFS.
+Note that you do NOT need to remove the `passwd` file from HDFS.
 The LOAD DATA command will have _moved_ the file from `/tmp/passwd`
 to `/user/hdpuser/warehouse`.  Dropping the `passwd` table will
 remove the file from `/user/hdpuser/warehouse`.
@@ -249,6 +301,16 @@ To exit the Pig shell enter:
 When tests are completed, the passwd file can be removed with:
 
     $ hadoop fs -rm /tmp/passwd
+
+
+Post-installation cleanup
+-------------------------
+After installation, the software packages can be removed from Google Cloud Storage.
+
+From the root directory where this sample application has been installed,
+run:
+
+    ./scripts/packages-delete-from-gcs__at__host.sh
 
 Appendix A
 ----------

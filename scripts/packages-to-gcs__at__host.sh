@@ -51,7 +51,7 @@ pkgutil_emit_list "$PACKAGES_DIR" "$PACKAGE_LIST"
 
 # Push packages to GCS
 emit ""
-emit "Pushing packages:"
+emit "Pushing packages to gs://$GCS_PACKAGE_BUCKET/$GCS_PACKAGE_DIR/:"
 gsutil -m cp -R $PACKAGES_DIR gs://$GCS_PACKAGE_BUCKET/$GCS_PACKAGE_DIR/
 
 emit ""
