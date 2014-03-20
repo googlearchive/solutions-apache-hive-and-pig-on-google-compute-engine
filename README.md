@@ -82,7 +82,7 @@ Create a Google Cloud Storage bucket.  This can be done by one of:
   If you used either of the above Hadoop cluster bring-up packages, you may
   use the same bucket.
 * Creating a new bucket from the "Cloud Storage" page on the project page of
-[Cloud Console](https://cloud.google.com/console)
+[Developers Console](https://console.developers.google.com/)
 * Creating a new bucket with the
 [gsutil command line tool](https://developers.google.com/storage/docs/gsutil):
 
@@ -336,16 +336,17 @@ and not the legacy Google JDBC driver.
 
 #### Create and configure the Google Cloud SQL instance
 
-In the [Google Cloud console](https://cloud.google.com/console), create a Google Cloud SQL instance, as described at
-[Getting Started](https://developers.google.com/cloud-sql/docs/before_you_begin).  When creating the Cloud SQL instance, be sure to:
+In the [Developers Console](https://console.developers.google.com/),
+create a Google Cloud SQL instance, as described at
+[Getting Started](https://developers.google.com/cloud-sql/docs/before_you_begin).
+When creating the Cloud SQL instance, be sure to:
 
   * Select **Specify Compute Engine zone** for the **Preferred Location**
   * Select the **GCE Zone** of your Hadoop master instance
   * Select **Assign IP Address**
   * Add the external IP address of the Hadoop master instance to
-    **Authorized IP Addresses**.  Be sure to append "/32" to the IP Address
-    entered in this field
-    (you can also assign an IP address after creating the Cloud SQL instance)
+    **Authorized IP Addresses**
+    (you can also assign an IP address after creating the Cloud SQL instance).
 
 After the Cloud SQL instance is created
 
@@ -357,7 +358,9 @@ After the Cloud SQL instance is created
 
 #### Install the MySQL client
 
-Connect to the Hadoop master instance as the user `hadoop`.
+Connect to the Hadoop master instance:
+
+    gcutil ssh <hadoop-master>
 
 Use the `aptitude` package manager to install the MySQL client:
 
@@ -395,7 +398,10 @@ Issue grants on the `hivemeta` database to `hdpuser`:
 
 #### Install the MySQL native JDBC driver
 
-Connect to the Hadoop master instance as the user `hadoop`.
+Connect to the Hadoop master instance:
+
+    gcutil ssh <hadoop-master>
+
 Use the `aptitude` package manager to install the MySQL JDBC driver:
 
     sudo apt-get install --yes libmysql-java
@@ -449,7 +455,10 @@ also be installed on a separate Google Compute Engine instance.
 
 #### Install the MySQL server
 
-Connect to the Hadoop master instance as the user `hadoop`.
+Connect to the Hadoop master instance:
+
+    gcutil ssh <hadoop-master>
+
 Use the `aptitude` package manager to install MySQL:
 
     sudo apt-get install --yes -f
